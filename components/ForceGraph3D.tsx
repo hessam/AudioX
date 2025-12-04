@@ -57,7 +57,7 @@ const ForceGraph = forwardRef<any, ForceGraph3DProps>(({
   synthResults,
   highlightedNodeIds
 }, ref) => {
-  const fgRef = useRef<any>();
+  const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<BandNode | null>(null);
   const isSynthActive = !!synthResults;
@@ -75,6 +75,10 @@ const ForceGraph = forwardRef<any, ForceGraph3DProps>(({
   // --- SPACE KEY PANNING LOGIC ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // FIX: Ignore if user is typing in an input field
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
       if (e.code === 'Space') {
         e.preventDefault(); // Prevent scrolling
         
@@ -96,6 +100,10 @@ const ForceGraph = forwardRef<any, ForceGraph3DProps>(({
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      // FIX: Ignore if user is typing in an input field
+      const activeTag = document.activeElement?.tagName;
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+
       if (e.code === 'Space') {
         e.preventDefault();
         
@@ -387,10 +395,18 @@ const ForceGraph = forwardRef<any, ForceGraph3DProps>(({
   return (
     <div ref={containerRef} className="w-full h-full bg-[#050505] relative overflow-hidden cursor-grab active:cursor-grabbing">
         <div className="absolute top-4 left-4 z-10 pointer-events-none select-none">
-            <h1 className="text-2xl md:text-4xl font-black text-white drop-shadow-lg tracking-tighter mix-blend-screen">ROCK GENEALOGY</h1>
-            <p className="text-indigo-400 text-[10px] md:text-sm font-mono drop-shadow-md tracking-wider">3D GALAXY VISUALIZER</p>
-            <div className="mt-1 flex items-center gap-2">
-               <span className="bg-zinc-800 text-gray-400 text-[9px] px-1.5 py-0.5 rounded border border-zinc-700">Space+Drag to Pan</span>
+            <div className="flex flex-col items-start">
+                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mix-blend-screen leading-none">
+                    AUDIO<span className="text-indigo-500">X</span>
+                </h1>
+                <p className="text-indigo-400 text-[10px] md:text-xs font-mono tracking-[0.2em] mt-1 ml-0.5 uppercase">
+                    Musical DNA Engine v4.0.1
+                </p>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+               <span className="bg-zinc-900/80 text-gray-500 text-[9px] px-2 py-0.5 rounded border border-zinc-800 backdrop-blur-sm">
+                 SPACE + DRAG TO PAN
+               </span>
             </div>
         </div>
 

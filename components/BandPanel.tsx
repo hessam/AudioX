@@ -353,6 +353,10 @@ const BandPanel: React.FC<BandPanelProps> = ({ selection, onClose, onUpdateNode,
           else setExploringBranches(false);
       }
   };
+  
+  const openMarketplace = (url: string) => {
+      window.open(url, '_blank');
+  };
 
   if (!selection) return null;
 
@@ -431,10 +435,8 @@ const BandPanel: React.FC<BandPanelProps> = ({ selection, onClose, onUpdateNode,
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto bg-[#1a1a1a] custom-scrollbar">
-        {/* Same content rendering logic as before, just ensured padding is responsive */}
         {activeTab === 'info' && (
           <div className="p-4 sm:p-6 space-y-6">
-            {/* ... (Content omitted for brevity, logic remains identical) ... */}
             {loading ? (
                 <div className="space-y-3 animate-pulse">
                     <div className="h-4 bg-zinc-800 rounded w-3/4"></div>
@@ -443,6 +445,74 @@ const BandPanel: React.FC<BandPanelProps> = ({ selection, onClose, onUpdateNode,
                 </div>
             ) : (
                 <div className="animate-fadeIn">
+                     {/* MONETIZATION MODULE (Skimlinks/Sovrn Optimized) */}
+                     {selection.type === 'node' && (
+                         <div className="mb-8 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl relative overflow-hidden group">
+                             <div className="absolute top-0 right-0 p-2 opacity-50">
+                                <svg className="w-12 h-12 text-zinc-800" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+                             </div>
+                             
+                             <h3 className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2">
+                                 <span>Official Commerce Channels</span>
+                                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                             </h3>
+                             
+                             <div className="grid grid-cols-1 gap-2 relative z-10">
+                                 
+                                 {/* 1. Vintage Vinyl (eBay) */}
+                                 <button
+                                     onClick={() => openMarketplace(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(selection.data.label + ' vinyl record')}&_sacat=176985`)}
+                                     className="flex items-center justify-between bg-zinc-800 hover:bg-zinc-700 hover:border-amber-700/50 text-white p-3 rounded-lg border border-zinc-700 transition-all group"
+                                 >
+                                     <div className="flex items-center gap-3">
+                                         <div className="w-8 h-8 rounded-full bg-amber-900/40 flex items-center justify-center text-amber-500">
+                                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/></svg>
+                                         </div>
+                                         <div className="flex flex-col items-start">
+                                             <span className="text-sm font-bold text-gray-200 group-hover:text-amber-400 transition-colors">Vintage Vinyl</span>
+                                             <span className="text-[9px] text-gray-500 uppercase tracking-wide">Acquire from eBay</span>
+                                         </div>
+                                     </div>
+                                     <svg className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                 </button>
+
+                                 {/* 2. Tickets (Ticketmaster/SeatGeek) */}
+                                 <button
+                                      onClick={() => openMarketplace(`https://www.ticketmaster.com/search?q=${encodeURIComponent(selection.data.label)}`)}
+                                      className="flex items-center justify-between bg-zinc-800 hover:bg-zinc-700 hover:border-indigo-600/50 text-white p-3 rounded-lg border border-zinc-700 transition-all group"
+                                 >
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-indigo-900/40 flex items-center justify-center text-indigo-400">
+                                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 10V6a2 2 0 00-2-2H4a2 2 0 00-2 2v4c1.1 0 2 .9 2 2s-.9 2-2 2v4a2 2 0 002 2h16a2 2 0 002-2v-4c-1.1 0-2-.9-2-2s.9-2 2-2zm-2-1.46c-1.19.69-2 1.99-2 3.46s.81 2.77 2 3.46V18H4v-2.54c1.19-.69 2-1.99 2-3.46s-.81-2.77-2-3.46V6h16v2.54z"/></svg>
+                                          </div>
+                                          <div className="flex flex-col items-start">
+                                              <span className="text-sm font-bold text-gray-200 group-hover:text-indigo-300 transition-colors">Live Tickets</span>
+                                              <span className="text-[9px] text-gray-500 uppercase tracking-wide">Ticketmaster / Live Nation</span>
+                                          </div>
+                                      </div>
+                                      <svg className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                 </button>
+                                 
+                                 {/* 3. Merch (Redbubble/Merchbar) */}
+                                 <button
+                                      onClick={() => openMarketplace(`https://www.merchbar.com/search?q=${encodeURIComponent(selection.data.label)}`)}
+                                      className="flex items-center justify-between bg-zinc-800 hover:bg-zinc-700 hover:border-pink-600/50 text-white p-3 rounded-lg border border-zinc-700 transition-all group"
+                                 >
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-full bg-pink-900/40 flex items-center justify-center text-pink-400">
+                                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M21.9 8.4l-1.6-1.6-5.8-5.8c-.8-.8-2-.8-2.8 0L5.9 6.8l-1.6 1.6c-.6.6-.9 1.4-.9 2.2v9.4c0 1.1.9 2 2 2h13.2c1.1 0 2-.9 2-2v-9.4c0-.8-.3-1.6-.9-2.2zm-9.3-5c.4-.4 1-.4 1.4 0l4.4 4.4H12.6l-2-2 2-2.4zM5.4 10.6c.2-.2.4-.3.7-.3h11.8c.3 0 .5.1.7.3.2.2.3.4.3.7v9.4H5.1v-9.4c0-.3.1-.5.3-.7z"/></svg>
+                                          </div>
+                                          <div className="flex flex-col items-start">
+                                              <span className="text-sm font-bold text-gray-200 group-hover:text-pink-300 transition-colors">Merch & Tees</span>
+                                              <span className="text-[9px] text-gray-500 uppercase tracking-wide">Official Merch Store</span>
+                                          </div>
+                                      </div>
+                                      <svg className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                 </button>
+                             </div>
+                         </div>
+                     )}
+
                      {selection.type === 'link' && selection.data.influenceContext && (
                         <div className="mb-6 p-4 bg-zinc-900 border border-zinc-700 rounded-lg">
                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Context</h4>
