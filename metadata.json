@@ -1,0 +1,5 @@
+{
+  "name": "Rock & Metal Genealogy",
+  "description": "An interactive 3D-style force-directed graph visualizing the evolution of Rock and Heavy Metal music, featuring AI-powered band insights.",
+  "requestFramePermissions": []
+}
