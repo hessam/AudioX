@@ -9,6 +9,12 @@ export interface DnaProfile {
   [layerId: string]: DnaEntry[]; 
 }
 
+export interface AudioAnalysis {
+  genre: string;
+  mood: string;
+  reasoning: string;
+}
+
 export interface BandNode extends SimulationNodeDatum {
   id: string;
   label: string;
@@ -35,6 +41,8 @@ export interface BandNode extends SimulationNodeDatum {
 
   dnaProfile?: DnaProfile; // Updated to support values
   isSequenced?: boolean; // True if AI has generated high-res DNA
+  
+  audioAnalysis?: AudioAnalysis; // New field for SPS reasoning
 }
 
 export interface BandLink extends SimulationLinkDatum<BandNode> {

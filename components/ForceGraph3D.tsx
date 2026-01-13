@@ -76,8 +76,10 @@ const ForceGraph = forwardRef<any, ForceGraph3DProps>(({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // FIX: Ignore if user is typing in an input field
-      const activeTag = document.activeElement?.tagName;
-      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+      const tagName = document.activeElement?.tagName;
+      const isTyping = tagName === 'INPUT' || tagName === 'TEXTAREA' || (document.activeElement as HTMLElement)?.isContentEditable;
+      
+      if (isTyping) return;
 
       if (e.code === 'Space') {
         e.preventDefault(); // Prevent scrolling
@@ -101,8 +103,10 @@ const ForceGraph = forwardRef<any, ForceGraph3DProps>(({
 
     const handleKeyUp = (e: KeyboardEvent) => {
       // FIX: Ignore if user is typing in an input field
-      const activeTag = document.activeElement?.tagName;
-      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+      const tagName = document.activeElement?.tagName;
+      const isTyping = tagName === 'INPUT' || tagName === 'TEXTAREA' || (document.activeElement as HTMLElement)?.isContentEditable;
+      
+      if (isTyping) return;
 
       if (e.code === 'Space') {
         e.preventDefault();

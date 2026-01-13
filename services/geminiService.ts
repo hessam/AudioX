@@ -269,3 +269,103 @@ export const sequenceBandDna = async (bandName: string) => {
         throw e;
     }
 }
+
+// --- NEW: COSMIC SPLICER (FUSION) ---
+export const findFusionBand = async (bandA: string, bandB: string, existingNodes: string[]) => {
+    const ai = getGenAI();
+    if (!ai) throw new Error("AI service unavailable");
+
+    const prompt = `
+    I am building a music discovery graph.
+    The user wants to find the "Missing Link" or a "Fusion" band that represents the intersection of:
+    Band A: "${bandA}"
+    Band B: "${bandB}"
+    
+    Please identify ONE REAL, HISTORICALLY VERIFIABLE BAND that perfectly bridges the style of these two artists.
+    CRITICAL: The band must actually exist on major platforms (Spotify/Discogs). DO NOT invent a fictional band name.
+    
+    The band should ideally NOT be in this list: ${JSON.stringify(existingNodes)}.
+    
+    If no perfect obscure match exists, choose a well-known bridge.
+    
+    Return a JSON object:
+    {
+      "name": "Band Name",
+      "rationale": "Why this band fits the fusion (max 20 words).",
+      "details": {
+         "group": integer (see standard groups),
+         "color": "#ffffff", 
+         "title": "Origin | Decade | Genre | Short Vibe",
+         "size": 30
+      }
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+        
+        const text = response.text;
+        if (!text) throw new Error("No response");
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Error finding fusion", e);
+        throw e;
+    }
+}
+
+// --- NEW: SONIC POSITIONING SYSTEM (AUDIO ANALYSIS) ---
+export const analyzeAudioContent = async (base64Audio: string, mimeType: string, existingNodes: string[]) => {
+    const ai = getGenAI();
+    if (!ai) throw new Error("AI service unavailable");
+
+    // 1. Analyze Audio
+    const prompt = `
+    Listen to this audio clip closely.
+    1. Analyze the genre, instrumentation, tempo, and specific production textures (lo-fi, reverb, distortion type).
+    2. Identify 3 EXISTING bands from this list that sound most similar: ${JSON.stringify(existingNodes)}.
+    3. Identify 1 REAL, VERIFIABLE, OBSCURE band (NOT in the list) that matches this sound. Do NOT invent a name.
+
+    Return JSON with this structure:
+    {
+       "analysis": {
+           "genre": "string",
+           "mood": "string",
+           "reasoning": "Describe the EXACT sonic qualities you hear in this specific clip (e.g. 'heavy fuzz bass', 'gated snare', 'falsetto vocals'). Do NOT use generic phrases like 'fast tempo'. Prove you listened to it."
+       },
+       "matches": [
+           { "name": "Existing Band Name", "similarity": 0-100 }
+       ],
+       "discovery": {
+           "name": "Obscure Band Name",
+           "details": { "group": int, "color": "#fbbf24", "title": "Details", "size": 30 }
+       }
+    }
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: mimeType, data: base64Audio } },
+                    { text: prompt }
+                ]
+            },
+            config: { 
+                responseMimeType: "application/json",
+                temperature: 1.2 // Increase creativity to ensure varied descriptions
+            }
+        });
+
+        const text = response.text;
+        if(!text) throw new Error("No response");
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Audio analysis failed", e);
+        throw e;
+    }
+}

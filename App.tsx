@@ -6,7 +6,7 @@ import SynthPanel from './components/SynthPanel';
 import TourOverlay from './components/TourOverlay';
 import { NODES as INITIAL_NODES, LINKS as INITIAL_LINKS, TOURS } from './constants';
 import { BandNode, BandLink, SelectionType, TracedMarker, Tour } from './types';
-import { analyzeBandForGraph, exploreLineage } from './services/geminiService';
+import { analyzeBandForGraph, exploreLineage, findFusionBand, analyzeAudioContent } from './services/geminiService';
 import { SynthParams, DEFAULT_SYNTH_PARAMS, calculateSynthScore } from './services/synthService';
 
 const App: React.FC = () => {
@@ -40,6 +40,20 @@ const App: React.FC = () => {
   const [synthParams, setSynthParams] = useState<SynthParams>(DEFAULT_SYNTH_PARAMS);
   const [isSynthOpen, setIsSynthOpen] = useState(false);
 
+  // --- NEW: SPLICER STATE ---
+  const [isSplicerActive, setIsSplicerActive] = useState(false);
+  const [spliceSource, setSpliceSource] = useState<BandNode | null>(null);
+  const [spliceTarget, setSpliceTarget] = useState<BandNode | null>(null);
+  const [isSplicing, setIsSplicing] = useState(false);
+
+  // --- NEW: AUDIO SPS STATE ---
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTimeLeft, setRecordingTimeLeft] = useState(8); // Start at 8 seconds
+  const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // --- GLOBAL RESET ---
   const handleReset = () => {
       setSelection(null);
@@ -50,6 +64,9 @@ const App: React.FC = () => {
       setIsSynthOpen(false);
       setActiveTour(null);
       setHighlightedNodeIds(new Set());
+      setSpliceSource(null);
+      setSpliceTarget(null);
+      setIsSplicerActive(false);
       
       // Reset Camera to initial position
       if (graphRef.current) {
@@ -125,6 +142,18 @@ const App: React.FC = () => {
 
   const handleNodeClick = (node: BandNode) => {
     if (activeTour) return; // Disable clicks during tour
+    
+    // SPLICER LOGIC
+    if (isSplicerActive) {
+        if (!spliceSource) {
+            setSpliceSource(node);
+        } else if (!spliceTarget && node.id !== spliceSource.id) {
+            setSpliceTarget(node);
+            executeSplice(spliceSource, node);
+        }
+        return;
+    }
+
     setSelection({ type: 'node', data: node });
     setSearchTargetId(null); 
   };
@@ -247,12 +276,6 @@ const App: React.FC = () => {
           // Trigger Highlight Mode for found bands
           setHighlightedNodeIds(foundIds);
 
-          // Give a small delay for physics to settle, then focus camera if it's a small discovery
-          if (foundIds.size <= 3 && graphRef.current) {
-              const firstId = Array.from(foundIds)[0];
-              // Optional: fly to it? Let's just let the highlight speak for itself for now to avoid motion sickness
-          }
-
       } catch (e) {
           console.error("Lineage exploration failed", e);
       }
@@ -267,6 +290,176 @@ const App: React.FC = () => {
       setSearchTargetId(id);
       setSearchTerm('');
   };
+
+  // --- NEW: SPLICER EXECUTION ---
+  const executeSplice = async (nodeA: BandNode, nodeB: BandNode) => {
+      setIsSplicing(true);
+      try {
+          const existingIds = nodes.map(n => n.id);
+          const data = await findFusionBand(nodeA.label, nodeB.label, existingIds);
+          
+          if (!data) throw new Error("No fusion data");
+          
+          const newNodeId = data.name;
+          
+          // Add Middle Node
+          const newNode: BandNode = {
+              id: newNodeId,
+              label: newNodeId,
+              group: data.details.group,
+              color: '#ffffff', // White for fusion
+              title: data.details.title,
+              size: data.details.size + 5,
+              tier: 'core',
+              // Position exactly between
+              x: ((nodeA.x || 0) + (nodeB.x || 0)) / 2,
+              y: ((nodeA.y || 0) + (nodeB.y || 0)) / 2,
+              z: ((nodeA.z || 0) + (nodeB.z || 0)) / 2
+          };
+
+          const newLinks = [
+              { source: nodeA.id, target: newNodeId, width: 2, influenceType: 'stylistic', influenceContext: 'Parent A of Fusion' },
+              { source: nodeB.id, target: newNodeId, width: 2, influenceType: 'stylistic', influenceContext: 'Parent B of Fusion' }
+          ];
+
+          setNodes(prev => [...prev, newNode]);
+          setLinks(prev => [...prev, ...newLinks] as BandLink[]);
+          setHighlightedNodeIds(new Set([newNodeId]));
+          
+          setSelection({ type: 'node', data: newNode });
+
+      } catch (e) {
+          console.error("Splice failed", e);
+      } finally {
+          setIsSplicing(false);
+          setSpliceSource(null);
+          setSpliceTarget(null);
+          setIsSplicerActive(false);
+      }
+  };
+
+  // --- NEW: AUDIO SPS LOGIC ---
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+        setIsRecording(false);
+        setRecordingTimeLeft(8); // Reset timer
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+        stopRecording();
+    } else {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunksRef.current.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                handleAudioAnalysis(audioBlob);
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTimeLeft(8);
+
+            // Start Countdown
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTimeLeft((prev) => {
+                    if (prev <= 1) {
+                        stopRecording(); // Auto-stop
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+
+        } catch (err) {
+            console.error("Error accessing microphone", err);
+            alert("Could not access microphone. Please enable permissions.");
+        }
+    }
+  };
+
+  const handleAudioAnalysis = async (blob: Blob) => {
+      setIsAnalyzingAudio(true);
+      try {
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = async () => {
+             const base64data = reader.result as string;
+             const base64Audio = base64data.split(',')[1];
+             const mimeType = base64data.split(',')[0].split(':')[1].split(';')[0];
+             
+             const existingIds = nodes.map(n => n.id);
+             const result = await analyzeAudioContent(base64Audio, mimeType, existingIds);
+             
+             // 1. Plot the "Discovery"
+             const disc = result.discovery;
+             const discNode: BandNode = {
+                 id: disc.name,
+                 label: disc.name,
+                 group: disc.details.group,
+                 color: '#fbbf24', // Gold
+                 title: disc.details.title,
+                 size: 40,
+                 tier: 'core',
+                 // Add the Analysis Report
+                 audioAnalysis: result.analysis, 
+                 // Random pos near center for dramatic entry
+                 x: (Math.random() - 0.5) * 100,
+                 y: (Math.random() - 0.5) * 100,
+                 z: 100 
+             };
+
+             const newLinks: BandLink[] = [];
+             
+             // 2. Connect to matches
+             result.matches.forEach((m: any) => {
+                 if (nodes.some(n => n.id === m.name)) {
+                    newLinks.push({
+                        source: disc.name,
+                        target: m.name,
+                        width: 3,
+                        influenceType: 'stylistic',
+                        influenceContext: `Sonic Match (${m.similarity}%)`
+                    });
+                 }
+             });
+
+             setNodes(prev => [...prev, discNode]);
+             setLinks(prev => [...prev, ...newLinks]);
+             setHighlightedNodeIds(new Set([disc.name]));
+             
+             // Fly to it
+             if (graphRef.current) {
+                 graphRef.current.cameraPosition(
+                     { x: discNode.x, y: discNode.y + 20, z: discNode.z + 100 },
+                     { x: discNode.x, y: discNode.y, z: discNode.z },
+                     2000
+                 );
+             }
+             
+             setTimeout(() => {
+                 setSelection({ type: 'node', data: discNode });
+             }, 2000);
+          };
+      } catch (e) {
+          console.error("Audio analysis failed", e);
+      } finally {
+          setIsAnalyzingAudio(false);
+      }
+  };
+
 
   const handleAddBand = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -345,6 +538,36 @@ const App: React.FC = () => {
             >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 <span className="hidden md:inline text-xs font-bold uppercase">Reset</span>
+            </button>
+            
+            {/* COSMIC SPLICER BUTTON */}
+             <button 
+                onClick={() => setIsSplicerActive(!isSplicerActive)}
+                className={`p-2 rounded-lg shadow-lg transition-all flex items-center gap-2 border ${isSplicerActive ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-zinc-800/80 text-indigo-400 border-indigo-900/50 hover:bg-zinc-700'}`}
+                title="Cosmic Splicer (Fusion)"
+            >
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                <span className="hidden md:inline text-xs font-bold uppercase">{isSplicerActive ? 'Splicer Active' : 'Splicer'}</span>
+            </button>
+
+            {/* SONIC POSITIONING SYSTEM BUTTON */}
+            <button 
+                onClick={toggleRecording}
+                disabled={isAnalyzingAudio}
+                className={`p-2 rounded-lg shadow-lg transition-all flex items-center gap-2 border ${isRecording ? 'bg-red-600 text-white border-red-500 animate-pulse' : (isAnalyzingAudio ? 'bg-zinc-800 text-gray-500' : 'bg-zinc-800/80 text-emerald-400 border-emerald-900/50 hover:bg-zinc-700')}`}
+                title="Sonic Positioning System (Mic)"
+            >
+                 {isAnalyzingAudio ? (
+                     <div className="w-5 h-5 border-2 border-gray-500 border-t-white rounded-full animate-spin"></div>
+                 ) : (
+                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                 )}
+                <span className="hidden md:inline text-xs font-bold uppercase">
+                    {isRecording 
+                        ? `Recording... ${recordingTimeLeft}s` 
+                        : (isAnalyzingAudio ? 'Analyzing...' : 'Listen')
+                    }
+                </span>
             </button>
 
             {tracedMarker && (
@@ -448,6 +671,24 @@ const App: React.FC = () => {
             </button>
         </div>
       </div>
+
+      {/* SPLICER OVERLAY INSTRUCTION */}
+      {isSplicerActive && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 bg-indigo-900/90 border border-indigo-500/50 px-6 py-3 rounded-full shadow-2xl backdrop-blur-md animate-fadeIn">
+              <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${spliceSource ? 'bg-emerald-400' : 'bg-gray-500 animate-pulse'}`}></div>
+                  <span className="text-white text-sm font-bold">
+                      {spliceSource ? spliceSource.label : 'Select Band A'}
+                  </span>
+                  <span className="text-indigo-400">➔</span>
+                  <div className={`w-3 h-3 rounded-full ${spliceTarget ? 'bg-emerald-400' : (spliceSource ? 'bg-gray-500 animate-pulse' : 'bg-gray-700')}`}></div>
+                  <span className="text-white text-sm font-bold">
+                      {spliceTarget ? spliceTarget.label : 'Select Band B'}
+                  </span>
+              </div>
+              {isSplicing && <div className="text-[10px] text-center text-indigo-300 mt-1 uppercase tracking-widest">Generating Fusion Node...</div>}
+          </div>
+      )}
 
       {/* Main Graph Area */}
       <main className="flex-1 relative">
@@ -597,10 +838,10 @@ const App: React.FC = () => {
                         <div>
                             <h3 className="font-bold text-white text-lg">Features</h3>
                             <ul className="text-sm mt-1 space-y-1">
-                                <li>• <strong>Synth Engine:</strong> Reverse engineer bands by sound.</li>
+                                <li>• <strong>Splicer:</strong> Find the fusion between two distinct bands.</li>
+                                <li>• <strong>Sonic Position:</strong> Use your mic to find music in the galaxy.</li>
                                 <li>• <strong>Time Travel:</strong> Guided historical tours.</li>
                                 <li>• <strong>DNA Tracer:</strong> Follow the flow of influence.</li>
-                                <li>• <strong>AI Discovery:</strong> Find ancestors and descendants.</li>
                             </ul>
                         </div>
                     </div>

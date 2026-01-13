@@ -1,5 +1,7 @@
 {
-  "name": "AudioX",
-  "description": "The Musical DNA Engine. An interactive 3D force-directed graph visualizing the evolution of music with AI-powered sequencing.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "name": "",
+  "description": ""
 }
